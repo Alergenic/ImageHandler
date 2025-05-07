@@ -10,11 +10,12 @@ import sys
 
 class ImageGenerator:
     def __init__(self, csv_path, output_dir, font_path="arialbd.ttf", linux_mode=False):
-        # Initialize paths and fonts
         self.csv_path = csv_path
         self.output_dir = output_dir
-        self.font_path = font_path
         self.linux_mode = linux_mode
+
+        # Font selection based on platform
+        self.font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if self.linux_mode else font_path
 
         # Load fonts
         try:
@@ -172,36 +173,28 @@ class App:
         self.root = root
         self.root.title("Image Generator")
 
-        # Initialize variables
         self.image_handler = None
         self.checkboxes = []
         self.selected = {}
 
-        # Determine the base directory (where the .exe is located)
         if getattr(sys, 'frozen', False):
             base_dir = os.path.dirname(sys.executable)
         else:
             base_dir = os.path.dirname(os.path.abspath(__file__))
 
-        # Use the paths relative to base_dir
         self.csv_path = os.path.join(base_dir, "ReportExport.csv")
         self.output_dir = os.path.join(base_dir, "images")
 
         self.create_widgets()
 
     def create_widgets(self):
-        """Create and place widgets for the GUI."""
-        # Add Linux mode checkbox
         self.linux_mode_var = tk.BooleanVar()
         self.linux_checkbox = tk.Checkbutton(self.root, text="Linux mode", variable=self.linux_mode_var)
         self.linux_checkbox.pack(side="bottom", pady=2)
 
-        # Generate Images button with smaller font and bottom position
-        self.generate_button = tk.Button(self.root, text="Generate Images", command=self.generate_images,
-                                         font=("Arial", 9))
+        self.generate_button = tk.Button(self.root, text="Generate Images", command=self.generate_images, font=("Arial", 9))
         self.generate_button.pack(side="bottom", pady=5)
 
-        # Frame for checkboxes and scrollable area
         self.main_frame = tk.Frame(self.root)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
 
@@ -215,62 +208,62 @@ class App:
         self.checkbox_frame = tk.Frame(self.canvas)
         self.canvas.create_window((0, 0), window=self.checkbox_frame, anchor="nw")
 
-        # Search entry to filter players
         self.search_var = tk.StringVar()
         self.search_entry = tk.Entry(self.root, textvariable=self.search_var)
         self.search_entry.pack(pady=10)
         self.search_var.trace_add('write', self.update_checkboxes)
 
-        # Button to show selected images
         self.show_button = tk.Button(self.root, text="Show Selected Players", command=self.show_selected_images)
         self.show_button.pack(pady=10)
 
-        # Button to clear all selections
         self.clear_button = tk.Button(self.root, text="Clear All Selections", command=self.clear_selection)
         self.clear_button.pack(pady=10)
 
-        # Bind mouse wheel scrolling
         self.canvas.bind_all("<MouseWheel>", self.on_mouse_wheel)
 
-        # Number of columns selection
         column_frame = tk.Frame(self.root)
         column_frame.pack()
 
         tk.Label(column_frame, text="Number of columns:").pack(side="left")
-
         self.num_columns_var = tk.IntVar(value=2)
         tk.Spinbox(column_frame, from_=1, to=10, textvariable=self.num_columns_var, width=5).pack(side="left")
 
     def generate_images(self):
-        """Generate images and display player names."""
         if os.path.exists(self.csv_path):
-            # Recreate output_dir by deleting it first if it exists
+            previous_selected = [player for player, var in self.selected.items() if var.get()]
+
             if os.path.exists(self.output_dir):
                 shutil.rmtree(self.output_dir)
             os.makedirs(self.output_dir)
 
-            self.image_handler = ImageGenerator(self.csv_path, self.output_dir)
+            font_path = "arialbd.ttf" if not self.linux_mode_var.get() else "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+            self.image_handler = ImageGenerator(
+                self.csv_path,
+                self.output_dir,
+                font_path,
+                linux_mode=self.linux_mode_var.get()
+            )
+            self.image_handler = ImageGenerator(self.csv_path, self.output_dir, font_path)
             self.image_handler.generate_images()
 
-            # Clear previous selections
             self.checkbox_frame.destroy()
             self.checkbox_frame = tk.Frame(self.canvas)
             self.canvas.create_window((0, 0), window=self.checkbox_frame, anchor="nw")
 
-            # Get player names from generated images
-            self.players = [f[:-4] for f in os.listdir(self.output_dir) if f.endswith(".png")]
+            self.players = sorted([f[:-4] for f in os.listdir(self.output_dir) if f.endswith(".png")])
             self.selected = {}
 
-            # Update the checkboxes with players
-            self.update_checkboxes()
+            self.update_checkboxes(previous_selected)
 
             messagebox.showinfo("Success", "Images generated successfully!")
         else:
             messagebox.showerror("Error", "CSV file not found.")
 
     def update_checkboxes(self, *args):
-        """Update the checkboxes based on the search term."""
-        # Clear existing checkboxes
+        preserved_selection = None
+        if len(args) >= 2:
+            preserved_selection = args[1]  # Handle custom input if needed
+
         for cb in self.checkboxes:
             cb.destroy()
         self.checkboxes.clear()
@@ -280,20 +273,20 @@ class App:
         for player in self.players:
             if search_term in player.lower():
                 var = tk.BooleanVar()
-                # Preserve previous state
                 if player in self.selected and self.selected[player].get():
                     var.set(True)
+                elif preserved_selection and player in preserved_selection:
+                    var.set(True)
+
                 cb = tk.Checkbutton(self.checkbox_frame, text=player, variable=var)
                 cb.pack(anchor="w")
                 self.selected[player] = var
                 self.checkboxes.append(cb)
 
-        # Update the scroll region to accommodate the new checkboxes
         self.checkbox_frame.update_idletasks()
         self.canvas.config(scrollregion=self.canvas.bbox("all"))
 
     def show_selected_images(self):
-        """Display selected images in a new window."""
         selected_players = [player for player, var in self.selected.items() if var.get()]
 
         if not selected_players:
@@ -302,8 +295,7 @@ class App:
 
         display_window = tk.Toplevel(self.root)
         display_window.title("Selected Players")
-
-        display_window.images = []  # Keep image references to avoid garbage collection
+        display_window.images = []
 
         num_columns = self.num_columns_var.get()
 
@@ -317,19 +309,15 @@ class App:
             label.grid(row=i // num_columns, column=i % num_columns, padx=0, pady=0)
 
     def clear_selection(self):
-        """Clear all selections and uncheck checkboxes."""
         for var in self.selected.values():
             var.set(False)
         self.update_checkboxes()
 
     def on_mouse_wheel(self, event):
-        """Enable scrolling with the mouse wheel."""
         self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
 
 
-# Run the Tkinter application
 if __name__ == "__main__":
     root = tk.Tk()
     app = App(root)
     root.mainloop()
-
