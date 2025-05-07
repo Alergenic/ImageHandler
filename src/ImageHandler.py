@@ -9,16 +9,21 @@ import os
 import sys
 
 class ImageGenerator:
-    def __init__(self, csv_path, output_dir, font_path="arialbd.ttf"):
+    def __init__(self, csv_path, output_dir, font_path="arialbd.ttf", linux_mode=False):
         # Initialize paths and fonts
         self.csv_path = csv_path
         self.output_dir = output_dir
         self.font_path = font_path
+        self.linux_mode = linux_mode
 
         # Load fonts
         try:
-            self.font = ImageFont.truetype(self.font_path, 30)
-            self.font_player = ImageFont.truetype(self.font_path, 24)
+            if self.linux_mode:
+                self.font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
+                self.font_player = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
+            else:
+                self.font = ImageFont.truetype(self.font_path, 30)
+                self.font_player = ImageFont.truetype(self.font_path, 24)
         except IOError:
             print("Font file not found, using default font.")
             self.font = ImageFont.load_default()
@@ -186,9 +191,15 @@ class App:
 
     def create_widgets(self):
         """Create and place widgets for the GUI."""
-        # Button to generate images
-        self.generate_button = tk.Button(self.root, text="Generate Images", command=self.generate_images)
-        self.generate_button.pack(pady=10)
+        # Add Linux mode checkbox
+        self.linux_mode_var = tk.BooleanVar()
+        self.linux_checkbox = tk.Checkbutton(self.root, text="Linux mode", variable=self.linux_mode_var)
+        self.linux_checkbox.pack(side="bottom", pady=2)
+
+        # Generate Images button with smaller font and bottom position
+        self.generate_button = tk.Button(self.root, text="Generate Images", command=self.generate_images,
+                                         font=("Arial", 9))
+        self.generate_button.pack(side="bottom", pady=5)
 
         # Frame for checkboxes and scrollable area
         self.main_frame = tk.Frame(self.root)
