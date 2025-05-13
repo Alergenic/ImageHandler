@@ -20,8 +20,8 @@ class ImageGenerator:
         # Load fonts
         try:
             if self.linux_mode:
-                self.font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
-                self.font_player = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
+                self.font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
+                self.font_player = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
             else:
                 self.font = ImageFont.truetype(self.font_path, 30)
                 self.font_player = ImageFont.truetype(self.font_path, 24)
@@ -36,9 +36,10 @@ class ImageGenerator:
             'red': (255, 0, 0),
             'yellow': (255, 255, 0),
             'blue': (0, 0, 255),
-            'brown': (139, 69, 19),
+            'brown': (176, 101, 0),
             'green': (0, 255, 0),
-            'purple': (128, 0, 128),
+            'purple': (201, 160, 255),
+            'pink': (255, 20, 147),
             'cyan': (0, 255, 255),
             'black': (0, 0, 0)
         }
@@ -48,7 +49,8 @@ class ImageGenerator:
             'first': 'white',
             'second': ['red', 'red', 'yellow', 'yellow', 'blue'],
             'third': ['brown', 'brown', 'green', 'green', 'purple', 'cyan'],
-            'fourth': 'white'
+            'fourth': ['pink', 'pink', 'pink', 'white'],
+            'fifth': 'white'
         }
 
         # Prepare the output directory
@@ -72,7 +74,7 @@ class ImageGenerator:
                 if isinstance(value, str):
                     value = value.replace(",", "")
                 value = float(value) / 1000
-                return f"{value:.1f}"  # Format as thousands with 1 decimal
+                return f"{value:.1f}k"  # Format as thousands with 1 decimal
 
             # Handle other numeric columns
             if isinstance(value, str):
@@ -82,7 +84,7 @@ class ImageGenerator:
             if column == "4Bet+ Ratio":
                 return f"{value:.1f}"  # One decimal for ratios
             else:
-                return str(round(value))  # Default: round to whole number
+                return "99" if round(value) == 100 else str(round(value))  # Default: round to whole number
 
         except (ValueError, TypeError):
             return str(value)  # Fallback for non-numeric values
@@ -96,13 +98,13 @@ class ImageGenerator:
         print(f"Generating image for player: {row['Player']}")
 
         # Create blank black image
-        img = Image.new('RGB', (310, 165), color=self.colors['black'])
+        img = Image.new('RGB', (300, 160), color=self.colors['black'])
         draw = ImageDraw.Draw(img)
 
         # First row: RFI stats in white
         first_row = ["RFI (EP)", "RFI (MP)", "RFI (CO)", "RFI (BU)", "RFI (SB)"]
-        y_pos = 10
-        x_pos = 10
+        y_pos = 5
+        x_pos = 8
         for i, col in enumerate(first_row):
             value = self.format_value(row[col], col)
             draw.text((x_pos, y_pos), value, fill=self.colors[self.row_colors['first']], font=self.font)
@@ -114,8 +116,8 @@ class ImageGenerator:
 
         # Second row: VPIP, PFR in red, 3Bet PF, 2Bet PF & Fold in yellow, 4Bet+ Ratio in blue
         second_row = ["VPIP", "PFR", "3Bet PF", "2Bet PF & Fold", "4Bet+ Ratio"]
-        y_pos = 50
-        x_pos = 10
+        y_pos = 35
+        x_pos = 8
         for i, col in enumerate(second_row):
             value = self.format_value(row[col], col)
             draw.text((x_pos, y_pos), value, fill=self.colors[self.row_colors['second'][i]], font=self.font)
@@ -127,8 +129,8 @@ class ImageGenerator:
 
         # Third row: CBet stats in brown, green, purple, cyan
         third_row = ["CBet F", "CBet T", "Fold to F Float", "Fold to T Float", "CBet F & Fold", "RCp XFf OOP"]
-        y_pos = 90
-        x_pos = 10
+        y_pos = 65
+        x_pos = 8
         for i, col in enumerate(third_row):
             value = self.format_value(row[col], col)
             draw.text((x_pos, y_pos), value, fill=self.colors[self.row_colors['third'][i]], font=self.font)
@@ -138,14 +140,27 @@ class ImageGenerator:
                 draw.text((x_pos - 10, y_pos), " / ", fill=self.colors[self.row_colors['third'][i]], font=self.font)
                 x_pos += 10  # Adjust position after delimiter
 
-        # Fourth row: Player and Hands in white
-        fourth_row = ["Player", "Hands"]
-        y_pos = 130
-        x_pos = 10
+        # Fourth row: Overall player summary
+        fourth_row = ["WTSD %","WWSF","WSD","Total AFq"]
+        y_pos = 95
+        x_pos = 8
         for i, col in enumerate(fourth_row):
             value = self.format_value(row[col], col)
-            draw.text((x_pos, y_pos), value, fill=self.colors[self.row_colors['fourth']], font=self.font_player)
-            x_pos += len(value) * 10 + 90  # Adjust the position for a smaller space after delimiter
+            draw.text((x_pos, y_pos), value, fill=self.colors[self.row_colors['fourth'][i]], font=self.font)
+            x_pos += len(value) * 10 + 20  # Adjust the position for a smaller space after delimiter
+            if i < len(fourth_row) - 1:
+                # Add delimiter between values
+                draw.text((x_pos - 10, y_pos), " / ", fill=self.colors[self.row_colors['fourth'][i]], font=self.font)
+                x_pos += 10  # Adjust position after delimiter
+
+        # Fifth row: Player and Hands in white
+        fifth_row = ["Player", "Hands"]
+        y_pos = 125
+        x_pos = 8
+        for i, col in enumerate(fifth_row):
+            value = self.format_value(row[col], col)
+            draw.text((x_pos, y_pos), value, fill=self.colors[self.row_colors['fifth']], font=self.font_player)
+            x_pos += 230  # Adjust the position for a smaller space after delimiter
 
         draw.rectangle(
             [(0, 0), (img.width - 1, img.height - 1)],
